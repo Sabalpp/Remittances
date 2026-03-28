@@ -65,7 +65,7 @@ function AppRoutes() {
   return (
     <PageTransition>
       <Routes>
-        <Route path="/" element={<LandingPage onStart={() => navigate('/scan')} />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/scan" element={<Scanner onBack={() => navigate('/')} />} />
       </Routes>
     </PageTransition>
@@ -74,10 +74,26 @@ function AppRoutes() {
 
 // ── Scanner (full AI agent analysis) ──
 function Scanner({ onBack }) {
-  const [form, setForm] = useState({
-    amount: '500', currency: 'NPR', service: 'Western Union',
-    offeredRate: '', fee: '', terms: '',
+  const location = useLocation()
+  const screenshotData = location.state?.extracted
+  const fromScreenshot = location.state?.fromScreenshot
+
+  const [form, setForm] = useState(() => {
+    if (screenshotData) {
+      const validCurrencies = COUNTRIES.map(c => c.code)
+      return {
+        amount: screenshotData.amount || '500',
+        currency: validCurrencies.includes(screenshotData.currency) ? screenshotData.currency : 'NPR',
+        service: SERVICES.find(s => s.toLowerCase() === (screenshotData.service || '').toLowerCase()) || 'Western Union',
+        offeredRate: screenshotData.offeredRate || '',
+        fee: screenshotData.fee || '',
+        terms: screenshotData.terms || '',
+      }
+    }
+    return { amount: '500', currency: 'NPR', service: 'Western Union', offeredRate: '', fee: '', terms: '' }
   })
+
+  const [screenshotSummary] = useState(screenshotData?.summary || null)
   const [agents, setAgents] = useState({})
   const [agentMessages, setAgentMessages] = useState([])
   const [compositeRisk, setCompositeRisk] = useState(null)
@@ -236,6 +252,16 @@ function Scanner({ onBack }) {
 
           {/* Left column: Form */}
           <div className="lg:col-span-2 space-y-6">
+            {screenshotSummary && (
+              <div className="bg-[#F0F7EB] border border-[#9FE870]/40 rounded-2xl p-4 flex items-start gap-3" style={{ boxShadow: '0 2px 12px rgba(22,51,0,0.05)' }}>
+                <span style={{ fontSize: 22, lineHeight: 1 }}>📸</span>
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#163300' }}>Extracted from Screenshot</div>
+                  <p className="text-sm" style={{ color: '#4B5563' }}>{screenshotSummary}</p>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} aria-label="Transfer details" className="space-y-5 bg-white rounded-2xl p-6 border border-[#163300]/8" style={{ boxShadow: '0 2px 16px rgba(22,51,0,0.06)' }}>
               <div>
                 <label htmlFor="amount" className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: '#4B5563' }}>Amount</label>

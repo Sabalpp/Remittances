@@ -7,7 +7,7 @@ const {
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 
 const bedrock = new BedrockRuntimeClient({ region: "us-east-1" });
 const BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0";
@@ -530,6 +530,118 @@ app.post("/analyze", async (req, res) => {
     console.error("Analysis error:", err);
     send("error", { error: err.message });
     res.end();
+  }
+});
+
+// ─── Screenshot Analysis Endpoint ───
+app.post("/analyze-screenshot", async (req, res) => {
+  const { image } = req.body; // base64 data URL
+
+  if (!image) {
+    return res.status(400).json({ error: "No image provided" });
+  }
+
+  try {
+    // Strip data URL prefix to get raw base64
+    const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!base64Match) {
+      return res.status(400).json({ error: "Invalid image format" });
+    }
+    const mediaType = `image/${base64Match[1]}`;
+    const base64Data = base64Match[2];
+
+    const prompt = `You are a financial document analyzer for RemitSafe, a remittance protection tool.
+
+Analyze this screenshot of a money transfer receipt or financial record. Extract the following details:
+
+1. **amount** — The USD amount being sent (number only, no $ sign)
+2. **currency** — The destination currency code (e.g., NPR, INR, EGP, PHP, MXN, BDT, PKR, ETB). If not one of these, use the closest match.
+3. **service** — The remittance service name (e.g., Western Union, MoneyGram, Ria, Remitly, Wise, WorldRemit, Xoom). If unknown, use "Other".
+4. **offeredRate** — The exchange rate shown (number only)
+5. **fee** — The transfer fee in USD (number only)
+6. **terms** — Any notable terms, conditions, or fine print visible
+
+If a field is not visible in the image, use an empty string "".
+If the image is not a financial document, still try your best to extract any relevant numbers.
+
+Return ONLY valid JSON, no markdown:
+{
+  "amount": "",
+  "currency": "",
+  "service": "",
+  "offeredRate": "",
+  "fee": "",
+  "terms": "",
+  "summary": "<one sentence describing what you found in the image>"
+}`;
+
+    let result;
+
+    if (LLM_MODE === "mock") {
+      // Mock response for testing without API
+      result = JSON.stringify({
+        amount: "500",
+        currency: "NPR",
+        service: "Western Union",
+        offeredRate: "132.5",
+        fee: "7.99",
+        terms: "Exchange rate may vary at time of delivery. Additional fees may apply.",
+        summary: "Western Union transfer receipt for $500 USD to Nepal at rate 132.5 NPR/USD with $7.99 fee."
+      });
+    } else if (LLM_MODE === "openrouter") {
+      const apiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${OPENROUTER_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: OPENROUTER_MODEL,
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: `data:${mediaType};base64,${base64Data}` } },
+            ],
+          }],
+        }),
+      });
+      const data = await apiRes.json();
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      result = data.choices[0].message.content;
+    } else {
+      // Bedrock vision
+      const command = new InvokeModelCommand({
+        modelId: BEDROCK_MODEL_ID,
+        contentType: "application/json",
+        accept: "application/json",
+        body: JSON.stringify({
+          anthropic_version: "bedrock-2023-05-31",
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+            ],
+          }],
+        }),
+      });
+      const response = await bedrock.send(command);
+      const body = JSON.parse(new TextDecoder().decode(response.body));
+      result = body.content[0].text;
+    }
+
+    const parsed = parseJSON(result);
+    if (!parsed) {
+      return res.status(500).json({ error: "Failed to parse AI response" });
+    }
+
+    res.json(parsed);
+  } catch (err) {
+    console.error("Screenshot analysis error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 

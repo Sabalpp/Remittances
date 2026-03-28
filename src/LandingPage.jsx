@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, forwardRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 // ── Forest Mint palette ──
 const G = '#9FE870'       // Primary (Forest Mint)
@@ -45,11 +46,13 @@ function useInView(threshold = 0.12) {
 }
 
 // ── Landing Page ──
-export default function LandingPage({ onStart }) {
+export default function LandingPage() {
+  const navigate = useNavigate()
   const [scrollY, setScrollY] = useState(0)
   const [heroRef, heroIn] = useInView(0.05)
   const [flagRef, flagIn] = useInView()
   const [featRef, featIn] = useInView()
+  const [snapRef, snapIn] = useInView()
   const [ctaRef, ctaIn]   = useInView()
 
   useEffect(() => {
@@ -92,7 +95,7 @@ export default function LandingPage({ onStart }) {
             ))}
           </div>
         </div>
-        <button onClick={onStart} style={{
+        <button onClick={() => navigate('/scan')} style={{
           padding: '10px 26px', borderRadius: 999, background: D, border: 'none',
           color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer',
           transition: 'opacity .2s',
@@ -144,7 +147,7 @@ export default function LandingPage({ onStart }) {
 
           {/* CTA */}
           <div className={`fade-up ${heroIn ? 'visible' : ''}`} style={{ transitionDelay: '380ms' }}>
-            <button onClick={onStart} className="hero-btn" style={{
+            <button onClick={() => navigate('/scan')} className="hero-btn" style={{
               padding: '18px 48px', borderRadius: 999, background: D, border: 'none',
               color: '#fff', fontWeight: 700, fontSize: 18, cursor: 'pointer',
               transition: 'transform .25s, box-shadow .25s',
@@ -237,6 +240,9 @@ export default function LandingPage({ onStart }) {
         </div>
       </section>
 
+      {/* ───── SCREENSHOT UPLOAD ───── */}
+      <ScreenshotSection ref={snapRef} inView={snapIn} navigate={navigate} />
+
       {/* ───── CTA ───── */}
       <section ref={ctaRef} style={{ background: G, padding: '100px 24px', textAlign: 'center' }}>
         <h2 className={`fade-up ${ctaIn ? 'visible' : ''}`} style={{
@@ -252,7 +258,7 @@ export default function LandingPage({ onStart }) {
         }}>Scan your next transfer for free. No account needed. 30 seconds.</p>
 
         <div className={`fade-up ${ctaIn ? 'visible' : ''}`} style={{ transitionDelay: '160ms' }}>
-          <button onClick={onStart} style={{
+          <button onClick={() => navigate('/scan')} style={{
             padding: '18px 52px', borderRadius: 999, background: D, border: 'none',
             color: '#fff', fontWeight: 700, fontSize: 18, cursor: 'pointer',
             transition: 'transform .25s, box-shadow .25s',
@@ -351,3 +357,259 @@ function FeatureCard({ f, inView, delay }) {
     </div>
   )
 }
+
+// ─── Screenshot Upload Section ───
+const ScreenshotSection = forwardRef(function ScreenshotSection({ inView, navigate }, ref) {
+  const [preview, setPreview] = useState(null)
+  const [fileName, setFileName] = useState('')
+  const [dragOver, setDragOver] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [error, setError] = useState(null)
+  const fileRef = useRef(null)
+
+  const handleFile = (file) => {
+    if (!file || !file.type.startsWith('image/')) return
+    setFileName(file.name)
+    setError(null)
+    const reader = new FileReader()
+    reader.onload = (e) => setPreview(e.target.result)
+    reader.readAsDataURL(file)
+  }
+
+  const onDrop = (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    handleFile(file)
+  }
+
+  const onInputChange = (e) => {
+    const file = e.target.files[0]
+    handleFile(file)
+  }
+
+  const clear = () => {
+    setPreview(null)
+    setFileName('')
+    setError(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const analyzeReceipt = async () => {
+    if (!preview) return
+    setAnalyzing(true)
+    setError(null)
+    try {
+      const res = await fetch('http://localhost:3001/analyze-screenshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: preview }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      navigate('/scan', { state: { fromScreenshot: true, extracted: data } })
+    } catch (err) {
+      setError(err.message || 'Failed to analyze screenshot')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  return (
+    <section ref={ref} style={{ background: '#fff', padding: '80px 24px 100px', textAlign: 'center' }}>
+      <h2 className={`fade-up ${inView ? 'visible' : ''}`} style={{
+        fontFamily: "'Anton', Impact, system-ui, sans-serif",
+        fontSize: 'clamp(32px, 6vw, 72px)', fontWeight: 400,
+        color: D, textTransform: 'uppercase', margin: '0 0 12px',
+      }}>SCAN YOUR RECEIPT</h2>
+      <p className={`fade-up ${inView ? 'visible' : ''}`} style={{
+        transitionDelay: '80ms', color: '#4B5563', fontSize: 17,
+        maxWidth: 480, margin: '0 auto 48px',
+      }}>Upload a screenshot of your transfer receipt or financial record and let our AI agents analyze it</p>
+
+      <div className={`fade-up ${inView ? 'visible' : ''}`} style={{ transitionDelay: '160ms', maxWidth: 560, margin: '0 auto' }}>
+
+        {/* Drop zone */}
+        {!preview ? (
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            onClick={() => fileRef.current?.click()}
+            style={{
+              border: `2px dashed ${dragOver ? G : 'rgba(22,51,0,0.15)'}`,
+              borderRadius: 28,
+              padding: '48px 32px',
+              cursor: 'pointer',
+              background: dragOver ? 'rgba(159,232,112,0.08)' : '#F0F7EB',
+              transition: 'all .3s',
+            }}
+          >
+            <div style={{
+              width: 72, height: 72, borderRadius: '50%', margin: '0 auto 20px',
+              background: dragOver ? G : 'rgba(22,51,0,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all .3s',
+            }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={dragOver ? D : '#4B5563'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'stroke .3s' }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </div>
+
+            <p style={{ fontSize: 16, fontWeight: 600, color: D, marginBottom: 6 }}>
+              {dragOver ? 'Drop your screenshot here' : 'Upload your financial record'}
+            </p>
+            <p style={{ fontSize: 13, color: '#4B5563', marginBottom: 20 }}>
+              Drag & drop or click to browse
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <label style={{
+                padding: '10px 24px', borderRadius: 999,
+                background: D, color: '#fff', fontWeight: 600, fontSize: 14,
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+                transition: 'opacity .2s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                Upload Screenshot
+              </label>
+
+              <label style={{
+                padding: '10px 24px', borderRadius: 999,
+                background: '#fff', border: `2px solid ${D}`, color: D,
+                fontWeight: 600, fontSize: 14, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                transition: 'all .2s',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.background = D; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = D }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+                Take Photo
+                <input type="file" accept="image/*" capture="environment" onChange={onInputChange} ref={fileRef} style={{ display: 'none' }} />
+              </label>
+            </div>
+
+            <input type="file" accept="image/*" onChange={onInputChange} ref={fileRef} style={{ display: 'none' }} />
+
+            <p style={{ fontSize: 11, color: '#4B5563', marginTop: 20, opacity: 0.6 }}>
+              PNG, JPG, or HEIC up to 10MB
+            </p>
+          </div>
+        ) : (
+          /* Preview + Analyze */
+          <div style={{
+            borderRadius: 28, overflow: 'hidden',
+            border: `2px solid ${analyzing ? G : G}`,
+            background: '#F0F7EB',
+          }}>
+            <div style={{ position: 'relative' }}>
+              <img src={preview} alt="Uploaded receipt"
+                style={{
+                  width: '100%', maxHeight: 360, objectFit: 'contain', display: 'block', background: '#fff',
+                  filter: analyzing ? 'brightness(0.7)' : 'none', transition: 'filter .3s',
+                }} />
+
+              {/* Scanning overlay */}
+              {analyzing && (
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(22,51,0,0.5)', backdropFilter: 'blur(2px)',
+                }}>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: '50%',
+                    border: '3px solid rgba(159,232,112,0.3)', borderTopColor: G,
+                    animation: 'spin 0.8s linear infinite',
+                  }} />
+                  <p style={{ color: '#fff', fontWeight: 600, fontSize: 15, marginTop: 14 }}>
+                    AI is reading your receipt...
+                  </p>
+                  <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+                </div>
+              )}
+
+              {/* Remove button */}
+              {!analyzing && (
+                <button onClick={clear} style={{
+                  position: 'absolute', top: 12, right: 12,
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: 'rgba(22,51,0,0.8)', color: '#fff',
+                  border: 'none', cursor: 'pointer', fontSize: 18,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'transform .2s',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >×</button>
+              )}
+            </div>
+
+            <div style={{ padding: '20px 24px' }}>
+              {error && (
+                <div style={{
+                  background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.2)',
+                  borderRadius: 12, padding: '10px 16px', marginBottom: 12,
+                  color: '#ba1a1a', fontSize: 13, textAlign: 'left',
+                }}>
+                  {error}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '50%', background: G,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                  }}>{analyzing ? '⏳' : '✓'}</div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: D }}>{fileName}</div>
+                    <div style={{ fontSize: 12, color: '#4B5563' }}>
+                      {analyzing ? 'Extracting transfer details...' : 'Ready to scan'}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={analyzeReceipt}
+                  disabled={analyzing}
+                  style={{
+                    padding: '12px 32px', borderRadius: 999,
+                    background: analyzing ? '#8a8a8a' : D, border: 'none', color: '#fff',
+                    fontWeight: 700, fontSize: 15, cursor: analyzing ? 'not-allowed' : 'pointer',
+                    transition: 'transform .25s, box-shadow .25s',
+                    boxShadow: '0 4px 20px rgba(22,51,0,0.18)',
+                    opacity: analyzing ? 0.7 : 1,
+                  }}
+                  onMouseEnter={e => { if (!analyzing) { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(22,51,0,0.25)' }}}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(22,51,0,0.18)' }}
+                >{analyzing ? 'Analyzing...' : 'Analyze Receipt →'}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Privacy note */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 20 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <span style={{ fontSize: 12, color: '#4B5563' }}>Your screenshot is analyzed securely and never stored</span>
+        </div>
+      </div>
+    </section>
+  )
+})
