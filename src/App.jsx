@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import LandingPage from './LandingPage'
 
+// ── Data ──
 const COUNTRIES = [
   { code: 'NPR', name: 'Nepal', flag: '🇳🇵' },
   { code: 'INR', name: 'India', flag: '🇮🇳' },
@@ -21,46 +23,56 @@ const AGENTS = {
   4: { name: 'Alert Generator', icon: '📢', color: 'emerald', desc: 'Synthesizing findings into multilingual alert' },
 }
 
-function App() {
-  const [showLanding, setShowLanding] = useState(true)
-  const [transitioning, setTransitioning] = useState(false)
+// ── Page transition wrapper ──
+function PageTransition({ children }) {
+  const location = useLocation()
+  const [displayChildren, setDisplayChildren] = useState(children)
+  const [fading, setFading] = useState(false)
 
-  const goToScanner = () => {
-    setTransitioning(true)
-    setTimeout(() => {
-      setShowLanding(false)
-      setTransitioning(false)
+  useEffect(() => {
+    setFading(true)
+    const t = setTimeout(() => {
+      setDisplayChildren(children)
+      setFading(false)
       window.scrollTo(0, 0)
-    }, 400)
-  }
-
-  const goToLanding = () => {
-    setTransitioning(true)
-    setTimeout(() => {
-      setShowLanding(true)
-      setTransitioning(false)
-      window.scrollTo(0, 0)
-    }, 400)
-  }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [location.pathname])
 
   return (
-    <>
-      <style>{`
-        @keyframes fadeIn  { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
-        @keyframes fadeOut { from { opacity:1; transform:translateY(0) }  to { opacity:0; transform:translateY(-8px) } }
-      `}</style>
-      <div style={{
-        animation: transitioning ? 'fadeOut .4s ease forwards' : 'fadeIn .45s ease',
-      }}>
-        {showLanding
-          ? <LandingPage onStart={goToScanner} />
-          : <Scanner onBack={goToLanding} />
-        }
-      </div>
-    </>
+    <div style={{
+      transition: 'opacity .3s ease, transform .3s ease',
+      opacity: fading ? 0 : 1,
+      transform: fading ? 'translateY(6px)' : 'translateY(0)',
+    }}>
+      {displayChildren}
+    </div>
   )
 }
 
+// ── App ──
+export default function App() {
+  return (
+    <Router>
+      <AppRoutes />
+    </Router>
+  )
+}
+
+function AppRoutes() {
+  const navigate = useNavigate()
+
+  return (
+    <PageTransition>
+      <Routes>
+        <Route path="/" element={<LandingPage onStart={() => navigate('/scan')} />} />
+        <Route path="/scan" element={<Scanner onBack={() => navigate('/')} />} />
+      </Routes>
+    </PageTransition>
+  )
+}
+
+// ── Scanner (full AI agent analysis) ──
 function Scanner({ onBack }) {
   const [form, setForm] = useState({
     amount: '500', currency: 'NPR', service: 'Western Union',
@@ -83,7 +95,6 @@ function Scanner({ onBack }) {
     if (liveRef.current) liveRef.current.textContent = msg
   }, [])
 
-  // Add agent interaction messages
   const addMessage = useCallback((from, to, msg) => {
     setAgentMessages(prev => [...prev, { from, to, msg, time: Date.now() }])
   }, [])
@@ -180,54 +191,73 @@ function Scanner({ onBack }) {
   const update = (f) => (e) => setForm({ ...form, [f]: e.target.value })
 
   return (
-    <div className="min-h-screen bg-[#08090c] text-gray-300 font-[system-ui]">
+    <div className="min-h-screen font-body" style={{ background: '#F0F7EB', color: '#163300' }}>
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-black focus:rounded-md focus:text-sm">Skip to main content</a>
       <div ref={liveRef} aria-live="polite" aria-atomic="true" className="sr-only" />
 
+      {/* Floating back button */}
+      <button onClick={onBack} aria-label="Back to home"
+        className="fixed top-5 left-5 z-[60] cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg active:scale-95"
+        style={{
+          width: 48, height: 48, borderRadius: '50%',
+          background: '#163300', color: '#9FE870',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 22, fontWeight: 700, border: 'none',
+          boxShadow: '0 4px 20px rgba(22,51,0,0.25)',
+          animation: 'floatBack 3s ease-in-out infinite',
+        }}>←</button>
+
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#08090c]/90 backdrop-blur-md border-b border-white/5">
+      <header className="sticky top-0 z-50 backdrop-blur-md border-b" style={{ background: 'rgba(159,232,112,0.92)', borderColor: 'rgba(22,51,0,0.08)' }}>
         <div className="max-w-5xl mx-auto px-5 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={onBack} className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center text-sm font-black text-black hover:scale-105 transition-transform cursor-pointer" aria-label="Back to home">R</button>
+          <div className="flex items-center gap-3 ml-14">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black" style={{ background: '#163300', color: '#9FE870' }}>R</div>
             <div>
-              <span className="text-sm font-semibold text-white">RemitSafe</span>
-              <span className="text-[10px] text-gray-600 ml-2 hidden sm:inline">AI Fraud Shield</span>
+              <span className="text-sm font-semibold" style={{ color: '#163300' }}>RemitSafe</span>
+              <span className="text-[10px] ml-2 hidden sm:inline" style={{ color: '#2d5a00' }}>AI Fraud Shield</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {loading && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-            <span className="text-[11px] text-gray-600">{loading ? '4 agents active' : '4 agents ready'}</span>
+            {loading && <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#163300' }} />}
+            <span className="text-[11px]" style={{ color: '#2d5a00' }}>{loading ? '4 agents active' : '4 agents ready'}</span>
           </div>
         </div>
       </header>
+
+      <style>{`
+        @keyframes floatBack {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+      `}</style>
 
       <main id="main-content" className="max-w-5xl mx-auto px-5 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
           {/* Left column: Form */}
           <div className="lg:col-span-2 space-y-6">
-            <form onSubmit={handleSubmit} aria-label="Transfer details" className="space-y-5">
+            <form onSubmit={handleSubmit} aria-label="Transfer details" className="space-y-5 bg-white rounded-2xl p-6 border border-[#163300]/8" style={{ boxShadow: '0 2px 16px rgba(22,51,0,0.06)' }}>
               <div>
-                <label htmlFor="amount" className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1">Amount</label>
-                <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3">
-                  <span className="text-gray-500">$</span>
+                <label htmlFor="amount" className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: '#4B5563' }}>Amount</label>
+                <div className="flex items-center gap-1 bg-[#F0F7EB] border border-[#163300]/10 rounded-xl px-3">
+                  <span style={{ color: '#4B5563' }}>$</span>
                   <input id="amount" type="number" min="1" value={form.amount} onChange={update('amount')} required
-                    className="w-full bg-transparent py-2.5 text-white focus:outline-none text-sm" />
+                    className="w-full bg-transparent py-2.5 focus:outline-none text-sm" style={{ color: '#163300' }} />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="currency" className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1">To</label>
+                  <label htmlFor="currency" className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: '#4B5563' }}>To</label>
                   <select id="currency" value={form.currency} onChange={update('currency')}
-                    className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none appearance-none cursor-pointer">
+                    className="w-full bg-[#F0F7EB] border border-[#163300]/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none appearance-none cursor-pointer" style={{ color: '#163300' }}>
                     {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="service" className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1">Service</label>
+                  <label htmlFor="service" className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: '#4B5563' }}>Service</label>
                   <select id="service" value={form.service} onChange={update('service')}
-                    className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none appearance-none cursor-pointer">
+                    className="w-full bg-[#F0F7EB] border border-[#163300]/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none appearance-none cursor-pointer" style={{ color: '#163300' }}>
                     {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -235,29 +265,30 @@ function Scanner({ onBack }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="offeredRate" className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1">Rate offered</label>
+                  <label htmlFor="offeredRate" className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: '#4B5563' }}>Rate offered</label>
                   <input id="offeredRate" type="number" step="any" value={form.offeredRate} onChange={update('offeredRate')} required placeholder="131"
-                    className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2.5 text-white placeholder-gray-700 text-sm focus:outline-none" />
+                    className="w-full bg-[#F0F7EB] border border-[#163300]/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none placeholder-[#4B5563]/40" style={{ color: '#163300' }} />
                 </div>
                 <div>
-                  <label htmlFor="fee" className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1">Fee</label>
-                  <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3">
-                    <span className="text-gray-500">$</span>
+                  <label htmlFor="fee" className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: '#4B5563' }}>Fee</label>
+                  <div className="flex items-center gap-1 bg-[#F0F7EB] border border-[#163300]/10 rounded-xl px-3">
+                    <span style={{ color: '#4B5563' }}>$</span>
                     <input id="fee" type="number" step="any" value={form.fee} onChange={update('fee')} required placeholder="12"
-                      className="w-full bg-transparent py-2.5 text-white placeholder-gray-700 text-sm focus:outline-none" />
+                      className="w-full bg-transparent py-2.5 text-sm focus:outline-none placeholder-[#4B5563]/40" style={{ color: '#163300' }} />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label htmlFor="terms" className="block text-[11px] text-gray-500 uppercase tracking-wider mb-1">Terms <span className="text-gray-700">(optional)</span></label>
+                <label htmlFor="terms" className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: '#4B5563' }}>Terms <span className="opacity-50">(optional)</span></label>
                 <textarea id="terms" value={form.terms} onChange={update('terms')} rows={2} placeholder="Paste fine print..."
-                  className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2.5 text-white placeholder-gray-700 text-sm focus:outline-none resize-none" />
+                  className="w-full bg-[#F0F7EB] border border-[#163300]/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none placeholder-[#4B5563]/40" style={{ color: '#163300' }} />
               </div>
 
               <button type="submit" disabled={loading} aria-busy={loading}
-                className="w-full py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-black text-sm font-semibold hover:from-emerald-400 hover:to-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
-                {loading ? 'Agents scanning...' : 'Scan transfer'}
+                className="w-full py-3 rounded-full text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                style={{ background: '#163300', color: '#fff' }}>
+                {loading ? 'Agents scanning...' : 'Scan Transfer'}
               </button>
             </form>
 
@@ -274,10 +305,10 @@ function Scanner({ onBack }) {
 
             {/* Agent Interaction Log */}
             {agentMessages.length > 0 && (
-              <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-white/[0.05] flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">Agent Activity</span>
+              <div className="bg-white border border-[#163300]/8 rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 16px rgba(22,51,0,0.06)' }}>
+                <div className="px-4 py-2.5 border-b border-[#163300]/8 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#163300' }} />
+                  <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: '#4B5563' }}>Agent Activity</span>
                 </div>
                 <div className="max-h-64 overflow-y-auto p-3 space-y-1 font-mono text-[11px]">
                   {agentMessages.map((m, i) => (
@@ -290,7 +321,6 @@ function Scanner({ onBack }) {
             {/* Risk Score + Bar Chart */}
             {compositeRisk !== null && (
               <div ref={resultRef} className="animate-slide-up space-y-6" tabIndex={-1}>
-                {/* Score */}
                 <div className={`rounded-xl p-5 border ${
                   compositeRisk > 7 ? 'border-red-500/20 bg-red-500/[0.04]' :
                   compositeRisk > 4 ? 'border-yellow-500/20 bg-yellow-500/[0.04]' :
@@ -315,7 +345,6 @@ function Scanner({ onBack }) {
                     </div>
                   </div>
 
-                  {/* Risk breakdown bars */}
                   {riskWeights && (
                     <div className="mt-4 pt-4 border-t border-white/[0.05] grid grid-cols-3 gap-3">
                       {[
@@ -351,14 +380,12 @@ function Scanner({ onBack }) {
             {/* Detailed findings */}
             {finalResult && (
               <div className="space-y-5 animate-slide-up">
-                {/* Summary */}
                 {finalResult.agent1 && (
                   <p className="text-white text-base leading-relaxed" role="alert">
                     {finalResult.agent1.summary}
                   </p>
                 )}
 
-                {/* Rate comparison */}
                 {finalResult.agent1?.rateAnalysis && (
                   <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 space-y-3">
                     <h3 className="text-[11px] text-gray-500 uppercase tracking-wider">Exchange Rate</h3>
@@ -384,7 +411,6 @@ function Scanner({ onBack }) {
                   </div>
                 )}
 
-                {/* Terms */}
                 {finalResult.agent2?.redFlags?.length > 0 && (
                   <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 space-y-3">
                     <h3 className="text-[11px] text-gray-500 uppercase tracking-wider">Terms Red Flags</h3>
@@ -404,7 +430,6 @@ function Scanner({ onBack }) {
                   </div>
                 )}
 
-                {/* Scam patterns */}
                 {finalResult.agent3?.patternsDetected?.length > 0 && (
                   <div className="bg-red-500/[0.03] border border-red-500/10 rounded-xl p-4 space-y-3">
                     <h3 className="text-[11px] text-red-400 uppercase tracking-wider">Scam Patterns</h3>
@@ -423,7 +448,6 @@ function Scanner({ onBack }) {
                   </div>
                 )}
 
-                {/* Translation */}
                 {finalResult.agent4?.alertInLanguage && (
                   <button onClick={() => setShowTranslation(!showTranslation)}
                     aria-expanded={showTranslation}
@@ -447,7 +471,7 @@ function Scanner({ onBack }) {
         </div>
       </main>
 
-      <footer className="max-w-5xl mx-auto px-5 py-6 text-[10px] text-gray-700 border-t border-white/[0.03]">
+      <footer className="max-w-5xl mx-auto px-5 py-6 text-[10px] border-t" style={{ color: '#4B5563', borderColor: 'rgba(22,51,0,0.08)' }}>
         Powered by Amazon Bedrock · 4 AI Agents · Protecting immigrant families worldwide
       </footer>
     </div>
@@ -505,7 +529,7 @@ function AgentCard({ id, agent }) {
   )
 }
 
-// ─── Agent Message (interaction log) ───
+// ─── Agent Message ───
 function AgentMessage({ msg }) {
   const actors = {
     orchestrator: { label: 'ORCH', color: 'text-gray-400' },
@@ -531,7 +555,6 @@ function AgentMessage({ msg }) {
 
 // ─── Cost Comparison Bar Chart ───
 function CostChart({ current, alternatives, amount }) {
-  // Build comparison data
   const items = [
     {
       name: current.name,
@@ -599,5 +622,3 @@ function Tag({ color, children }) {
   }
   return <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded border ${colors[color]}`}>{children}</span>
 }
-
-export default App
