@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import LandingPage from './LandingPage'
 
 const COUNTRIES = [
   { code: 'NPR', name: 'Nepal', flag: '🇳🇵' },
@@ -21,6 +22,46 @@ const AGENTS = {
 }
 
 function App() {
+  const [showLanding, setShowLanding] = useState(true)
+  const [transitioning, setTransitioning] = useState(false)
+
+  const goToScanner = () => {
+    setTransitioning(true)
+    setTimeout(() => {
+      setShowLanding(false)
+      setTransitioning(false)
+      window.scrollTo(0, 0)
+    }, 400)
+  }
+
+  const goToLanding = () => {
+    setTransitioning(true)
+    setTimeout(() => {
+      setShowLanding(true)
+      setTransitioning(false)
+      window.scrollTo(0, 0)
+    }, 400)
+  }
+
+  return (
+    <>
+      <style>{`
+        @keyframes fadeIn  { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes fadeOut { from { opacity:1; transform:translateY(0) }  to { opacity:0; transform:translateY(-8px) } }
+      `}</style>
+      <div style={{
+        animation: transitioning ? 'fadeOut .4s ease forwards' : 'fadeIn .45s ease',
+      }}>
+        {showLanding
+          ? <LandingPage onStart={goToScanner} />
+          : <Scanner onBack={goToLanding} />
+        }
+      </div>
+    </>
+  )
+}
+
+function Scanner({ onBack }) {
   const [form, setForm] = useState({
     amount: '500', currency: 'NPR', service: 'Western Union',
     offeredRate: '', fee: '', terms: '',
@@ -147,7 +188,7 @@ function App() {
       <header className="sticky top-0 z-50 bg-[#08090c]/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-5xl mx-auto px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center text-sm font-black text-black">R</div>
+            <button onClick={onBack} className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center text-sm font-black text-black hover:scale-105 transition-transform cursor-pointer" aria-label="Back to home">R</button>
             <div>
               <span className="text-sm font-semibold text-white">RemitSafe</span>
               <span className="text-[10px] text-gray-600 ml-2 hidden sm:inline">AI Fraud Shield</span>
