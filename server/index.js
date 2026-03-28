@@ -10,10 +10,13 @@ app.use(cors());
 app.use(express.json());
 
 const bedrock = new BedrockRuntimeClient({ region: "us-east-1" });
-const MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0";
+const BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0";
 
-// Toggle: set to true to use Bedrock, false for preloaded mock data
-const USE_BEDROCK = false;
+// ─── LLM MODE: "openrouter" | "bedrock" | "mock" ───
+const LLM_MODE = "openrouter";
+
+const OPENROUTER_KEY = "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";
+const OPENROUTER_MODEL = "anthropic/claude-sonnet-4";
 
 const EXCHANGE_API_KEY = "45b66183fc855a9646fb8a9e";
 const EXCHANGE_API_URL = `https://v6.exchangerate-api.com/v6/${EXCHANGE_API_KEY}/latest/USD`;
@@ -42,9 +45,28 @@ async function getExchangeRates() {
   return cachedRates;
 }
 
-async function callBedrock(prompt, maxTokens = 1500) {
+async function callLLM(prompt, maxTokens = 1500) {
+  if (LLM_MODE === "openrouter") {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENROUTER_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OPENROUTER_MODEL,
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    return data.choices[0].message.content;
+  }
+
+  // Bedrock path
   const command = new InvokeModelCommand({
-    modelId: MODEL_ID,
+    modelId: BEDROCK_MODEL_ID,
     contentType: "application/json",
     accept: "application/json",
     body: JSON.stringify({
@@ -325,7 +347,7 @@ function buildMockAgent4(txn, country, agent1, agent2, agent3, compositeRisk) {
 // ─── Delay helper to simulate agent processing time ───
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ─── Bedrock Agent Prompts (kept for when USE_BEDROCK = true) ───
+// ─── Bedrock Agent Prompts (kept for when LLM_MODE !== "mock" = true) ───
 
 function buildAgent1Prompt(txn, realRate, country) {
   return `You are Agent 1: Rate Anomaly Detector for RemitSafe.
@@ -439,11 +461,11 @@ app.post("/analyze", async (req, res) => {
 
     let agent1, agent2, agent3;
 
-    if (USE_BEDROCK) {
+    if (LLM_MODE !== "mock") {
       const [raw1, raw2, raw3] = await Promise.all([
-        callBedrock(buildAgent1Prompt(txn, realRate, country)),
-        callBedrock(buildAgent2Prompt(txn, country)),
-        callBedrock(buildAgent3Prompt(txn, country)),
+        callLLM(buildAgent1Prompt(txn, realRate, country)),
+        callLLM(buildAgent2Prompt(txn, country)),
+        callLLM(buildAgent3Prompt(txn, country)),
       ]);
       agent1 = parseJSON(raw1);
       agent2 = parseJSON(raw2);
@@ -463,7 +485,7 @@ app.post("/analyze", async (req, res) => {
       send("agent-result", { agent: 3, data: agent3 });
     }
 
-    if (USE_BEDROCK) {
+    if (LLM_MODE !== "mock") {
       send("agent-result", { agent: 1, data: agent1 });
       send("agent-result", { agent: 2, data: agent2 });
       send("agent-result", { agent: 3, data: agent3 });
@@ -475,15 +497,15 @@ app.post("/analyze", async (req, res) => {
     const r3 = agent3?.riskScore || 0;
     const compositeRisk = 0.35 * r1 + 0.35 * r2 + 0.30 * r3;
 
-    await delay(USE_BEDROCK ? 0 : 400);
+    await delay(LLM_MODE !== "mock" ? 0 : 400);
     send("risk-score", { composite: parseFloat(compositeRisk.toFixed(1)), weights: { rate: r1, language: r2, scam: r3 } });
 
     // Agent 4
     send("agent-start", { agent: 4, name: "Alert Generator" });
 
     let agent4;
-    if (USE_BEDROCK) {
-      const raw4 = await callBedrock(buildAgent4Prompt(txn, country, agent1, agent2, agent3, compositeRisk));
+    if (LLM_MODE !== "mock") {
+      const raw4 = await callLLM(buildAgent4Prompt(txn, country, agent1, agent2, agent3, compositeRisk));
       agent4 = parseJSON(raw4);
     } else {
       await delay(700);
@@ -516,5 +538,5 @@ app.get("/health", (req, res) => res.json({ status: "ok" }));
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`RemitSafe server running on port ${PORT}`);
-  console.log(`Mode: ${USE_BEDROCK ? "BEDROCK (live AI)" : "MOCK (preloaded data)"}`);
+  console.log(`Mode: ${LLM_MODE.toUpperCase()}`);
 });
