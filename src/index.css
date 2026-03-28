@@ -1,19 +1,42 @@
 @import "tailwindcss";
 
 @theme {
+  --color-primary: #9FE870;
+  --color-primary-dark: #7ACC4A;
+  --color-secondary: #163B06;
+  --color-tertiary: #333333;
+  --color-neutral: #F0F0F0;
+  --color-neutral-dark: #E0E0E0;
+  --color-surface: #FAFAFA;
+  --color-danger: #DC2626;
+  --color-warning: #D97706;
+  --color-safe: #16A34A;
+
   --animate-progress: progress 2.5s ease-in-out infinite;
-  --animate-slide-up: slideUp 0.35s ease-out;
+  --animate-slide-up: slideUp 0.4s ease-out;
+  --animate-fade-in: fadeIn 0.5s ease-out;
 }
 
 @keyframes progress {
   0% { width: 5%; }
-  50% { width: 80%; }
+  50% { width: 75%; }
   100% { width: 95%; }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-select option { background: #000; color: white; }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: #fff;
+  color: var(--color-tertiary);
+}
+
+select option { background: #fff; color: var(--color-tertiary); }

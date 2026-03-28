@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite:*)",
+      "Bash(mkdir -p ~/.aws)",
+      "Bash(~/.aws/credentials:*)",
+      "Bash(~/.aws/config:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}

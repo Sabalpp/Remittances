@@ -13,7 +13,7 @@ const bedrock = new BedrockRuntimeClient({ region: "us-east-1" });
 const BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0";
 
 // ─── LLM MODE: "openrouter" | "bedrock" | "mock" ───
-const LLM_MODE = "openrouter";
+const LLM_MODE = "mock";
 
 const OPENROUTER_KEY = "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";
 const OPENROUTER_MODEL = "anthropic/claude-sonnet-4";
