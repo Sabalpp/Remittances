@@ -1,19 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --animate-progress: progress 2.5s ease-in-out infinite;
-  --animate-slide-up: slideUp 0.35s ease-out;
+  --color-on-primary-container: #86a0cd;
+  --color-surface-dim: #d7dadc;
+  --color-tertiary: #4b0004;
+  --color-secondary: #0a6c44;
+  --color-background: #f7fafc;
+  --color-on-primary-fixed-variant: #2d476f;
+  --color-inverse-primary: #adc7f7;
+  --color-surface: #f7fafc;
+  --color-surface-tint: #455f88;
+  --color-surface-container: #ebeef0;
+  --color-on-background: #181c1e;
+  --color-on-tertiary-fixed: #410003;
+  --color-inverse-on-surface: #eef1f3;
+  --color-surface-container-highest: #e0e3e5;
+  --color-tertiary-container: #73000b;
+  --color-on-secondary-container: #167249;
+  --color-tertiary-fixed-dim: #ffb3ad;
+  --color-surface-bright: #f7fafc;
+  --color-surface-variant: #e0e3e5;
+  --color-inverse-surface: #2d3133;
+  --color-surface-container-low: #f1f4f6;
+  --color-on-primary-fixed: #001b3c;
+  --color-secondary-fixed-dim: #83d8a6;
+  --color-primary-container: #1a365d;
+  --color-primary-fixed: #d6e3ff;
+  --color-on-secondary-fixed-variant: #005231;
+  --color-outline: #74777f;
+  --color-on-surface-variant: #43474e;
+  --color-primary-fixed-dim: #adc7f7;
+  --color-tertiary-fixed: #ffdad6;
+  --color-secondary-container: #9ff5c1;
+  --color-on-tertiary-container: #ff736b;
+  --color-surface-container-high: #e5e9eb;
+  --color-secondary-fixed: #9ff5c1;
+  --color-on-primary: #ffffff;
+  --color-outline-variant: #c4c6cf;
+  --color-primary: #002045;
+  --color-on-tertiary: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-surface: #181c1e;
+  --color-error-container: #ffdad6;
+  --color-on-secondary-fixed: #002111;
+  --color-on-error-container: #93000a;
+  --color-on-tertiary-fixed-variant: #920212;
+  --color-on-secondary: #ffffff;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+
+  --animate-pulse-slow: pulseSlow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
 }
 
-@keyframes progress {
-  0% { width: 5%; }
-  50% { width: 80%; }
-  100% { width: 95%; }
+@keyframes pulseSlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
 }
 
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-select option { background: #000; color: white; }
+.bg-glass {
+  background: rgba(26, 54, 93, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+.pulse-slow {
+  animation: pulseSlow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+.asymmetric-shape {
+  border-radius: 2rem 0.5rem 2rem 2rem;
+}
